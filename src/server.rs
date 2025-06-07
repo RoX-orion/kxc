@@ -12,8 +12,8 @@ use tokio::sync::Mutex;
 
 type Aes256Ctr = ctr::Ctr128BE<Aes256>;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+
+pub async fn server() -> Result<()> {
     let key = b"0123456789abcdef0123456789abcdef"; // 32 bytes AES-256 key
     let nonce = b"12345678abcdefgh"; // 16 bytes nonce
 
@@ -35,8 +35,7 @@ async fn main() -> Result<()> {
 async fn handle_connection(mut stream: TcpStream, key: &[u8], nonce: &[u8]) -> Result<()> {
     let encrypt_cipher = Arc::new(Mutex::new(Aes256Ctr::new(key[..].into(), nonce[..].into())));
     let decrypt_cipher = Arc::new(Mutex::new(Aes256Ctr::new(key[..].into(), nonce[..].into())));
-
-    // ==== 读取客户端发来的目标地址信息 ====
+    
     let mut header = [0u8; 1];
     stream.read_exact(&mut header).await?;
     decrypt_cipher.lock().await.apply_keystream(&mut header);
@@ -51,7 +50,7 @@ async fn handle_connection(mut stream: TcpStream, key: &[u8], nonce: &[u8]) -> R
             let port = u16::from_be_bytes([buf[4], buf[5]]);
             format!("{ip}:{port}")
         }
-        0x03 => { // 域名
+        0x03 => { // Domain
             let mut len_buf = [0u8; 1];
             stream.read_exact(&mut len_buf).await?;
             decrypt_cipher.lock().await.apply_keystream(&mut len_buf);
